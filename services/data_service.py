@@ -43,37 +43,81 @@ class DataService:
         except:
             return pd.DataFrame()
 
-    @staticmethod
-    def fetch_upstox_portfolio():
-        """Fetch portfolio with string-based hashing to prevent hangs"""
-        try:
-            creds = DataService.get_credentials()
-            if not creds["api_key"]: 
-                return [], []
-            
-            auth = UpstoxAuth(creds["api_key"], creds["api_secret"], creds["redirect_uri"])
-            token = auth.get_access_token()
-            
-            if not token:
-                st.session_state['upstox_auth_needed'] = True
-                return [], []
-            
-            st.session_state['upstox_auth_needed'] = False
-            
-            # PASS STRING TOKEN, NOT OBJECT to avoid hashing hangs
-            return DataService._fetch_portfolio_internal(token)
-        except Exception as e:
-            st.error(f"Portfolio Fetch Error: {e}")
-            return [], []
+        @staticmethod
 
-    @staticmethod
-    @st.cache_data(ttl=60)
-    def _fetch_portfolio_internal(access_token: str):
-        """String token prevents hashing hangs in Streamlit Cloud"""
-        fo_data = UpstoxFOData(access_token)
-        holdings = fo_data.get_holdings()
-        positions = fo_data.get_positions()
-        return holdings, positions
+        def fetch_upstox_portfolio():
+
+            """Fetch portfolio with string-based hashing to prevent hangs"""
+
+            try:
+
+                creds = DataService.get_credentials()
+
+                if not creds["api_key"]: 
+
+                    return [], [], "API Key Missing"
+
+                
+
+                auth = UpstoxAuth(creds["api_key"], creds["api_secret"], creds["redirect_uri"])
+
+                token = auth.get_access_token()
+
+                
+
+                if not token:
+
+                    st.session_state['upstox_auth_needed'] = True
+
+                    return [], [], "Auth Required"
+
+                
+
+                st.session_state['upstox_auth_needed'] = False
+
+                
+
+                # PASS STRING TOKEN, NOT OBJECT to avoid hashing hangs
+
+                return DataService._fetch_portfolio_internal(token)
+
+            except Exception as e:
+
+                st.error(f"Portfolio Fetch Error: {e}")
+
+                return [], [], str(e)
+
+    
+
+        @staticmethod
+
+        @st.cache_data(ttl=60)
+
+        def _fetch_portfolio_internal(access_token: str):
+
+            """String token prevents hashing hangs in Streamlit Cloud"""
+
+            fo_data = UpstoxFOData(access_token)
+
+            holdings, h_err = fo_data.get_holdings()
+
+            positions, p_err = fo_data.get_positions()
+
+            
+
+            # Combine errors if any
+
+            error = None
+
+            if h_err or p_err:
+
+                error = f"Holdings: {h_err or 'OK'}, Positions: {p_err or 'OK'}"
+
+                
+
+            return holdings, positions, error
+
+    
 
     @staticmethod
     def render_upstox_auth_ui():
