@@ -50,12 +50,42 @@ class DataService:
             if not creds["api_key"]: return [], []
             
             auth = UpstoxAuth(creds["api_key"], creds["api_secret"])
+            token = auth.get_access_token()
+            
+            if not token:
+                # Store auth object in session state for UI to use
+                st.session_state['upstox_auth_needed'] = True
+                return [], []
+            
+            st.session_state['upstox_auth_needed'] = False
             fo_data = UpstoxFOData(auth)
             holdings = fo_data.get_holdings()
             positions = fo_data.get_positions()
             return holdings, positions
-        except Exception:
+        except Exception as e:
+            st.error(f"Portfolio Fetch Error: {e}")
             return [], []
+
+    @staticmethod
+    def render_upstox_auth_ui():
+        """Renders authentication UI in sidebar if token is missing"""
+        if st.session_state.get('upstox_auth_needed'):
+            st.sidebar.warning("🔐 Upstox Session Expired")
+            creds = DataService.get_credentials()
+            auth = UpstoxAuth(creds["api_key"], creds["api_secret"])
+            
+            st.sidebar.markdown(f"[Click here to Login]({auth.get_login_url()})")
+            
+            with st.sidebar.form("auth_code_form"):
+                code = st.text_input("Enter Code from URL")
+                if st.form_submit_button("ACTIVATE SESSION"):
+                    try:
+                        auth.exchange_code_for_tokens(code)
+                        st.session_state['upstox_auth_needed'] = False
+                        st.success("Session Active!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Activation Failed: {e}")
 
     @staticmethod
     def get_market_breadth():

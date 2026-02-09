@@ -98,6 +98,9 @@ def main():
     
     st.sidebar.title("NAVIGATOR")
     
+    # Check for authentication needs
+    DataService.render_upstox_auth_ui()
+    
     cats = ["Intelligence", "Research", "Trading"]
     for cat in cats:
         st.sidebar.caption(f"{cat.upper()}")

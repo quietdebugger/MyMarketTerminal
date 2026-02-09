@@ -98,7 +98,7 @@ def _get_instrument_key(
     return None
 
 class UpstoxAuth:
-    """Simplified OAuth - 24 hour tokens"""
+    """Simplified OAuth - 24 hour tokens (Headless Friendly)"""
     
     def __init__(self, api_key: str, api_secret: str, redirect_uri: str = "http://localhost:5600"):
         self.api_key = api_key
@@ -106,32 +106,13 @@ class UpstoxAuth:
         self.redirect_uri = redirect_uri
         self.token_file = "upstox_tokens.json"
     
-    class OAuthHandler(BaseHTTPRequestHandler):
-        auth_code = None
-        
-        def do_GET(self):
-            query = parse_qs(urlparse(self.path).query)
-            UpstoxAuth.OAuthHandler.auth_code = query.get("code", [None])[0]
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"Authorization successful! Close this tab.")
-        
-        def log_message(self, format, *args):
-            pass
-    
-    def get_auth_code(self):
-        auth_url = (
+    def get_login_url(self) -> str:
+        """Returns the login URL for manual user intervention"""
+        return (
             "https://api.upstox.com/v2/login/authorization/dialog"
             f"?response_type=code&client_id={self.api_key}"
             f"&redirect_uri={self.redirect_uri}"
         )
-        
-        server = HTTPServer(("localhost", 5600), self.OAuthHandler)
-        print("Opening browser for Upstox login...") # Removed emoji to prevent crash
-        webbrowser.open(auth_url)
-        server.handle_request()
-        
-        return self.OAuthHandler.auth_code
     
     def exchange_code_for_tokens(self, code: str) -> Dict:
         url = "https://api.upstox.com/v2/login/authorization/token"
@@ -153,29 +134,37 @@ class UpstoxAuth:
         data["timestamp"] = time.time()
         data["expires_at"] = time.time() + (24 * 3600)
         
-        with open(self.token_file, "w") as f:
-            json.dump(data, f, indent=2)
-        
-        logger.info("✓ Token saved (valid 24 hours)")
+        # Save to file if possible (local)
+        try:
+            with open(self.token_file, "w") as f:
+                json.dump(data, f, indent=2)
+            logger.info("✓ Token saved locally")
+        except:
+            pass
+            
         return data
     
-    def get_access_token(self) -> str:
-        if not os.path.exists(self.token_file):
-            code = self.get_auth_code()
-            if not code:
-                raise RuntimeError("Authorization failed")
-            tokens = self.exchange_code_for_tokens(code)
-            return tokens["access_token"]
-        
-        with open(self.token_file, "r") as f:
-            tokens = json.load(f)
-        
-        if time.time() > tokens.get("expires_at", 0):
-            logger.warning("Token expired, re-authorizing...")
-            os.remove(self.token_file)
-            return self.get_access_token()
-        
-        return tokens["access_token"]
+    def get_access_token(self) -> Optional[str]:
+        """
+        Retrieves access token. Returns None if manual auth is needed.
+        Does NOT block or open browser.
+        """
+        # 1. Try local file
+        if os.path.exists(self.token_file):
+            try:
+                with open(self.token_file, "r") as f:
+                    tokens = json.load(f)
+                
+                if time.time() < tokens.get("expires_at", 0):
+                    return tokens["access_token"]
+                else:
+                    logger.warning("Local token expired.")
+                    os.remove(self.token_file)
+            except:
+                pass
+
+        # 2. Return None to indicate auth required
+        return None
 
     def invalidate_token(self):
         """Force invalidate local token"""
