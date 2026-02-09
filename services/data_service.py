@@ -4,14 +4,7 @@ import pandas as pd
 import numpy as np
 import os
 import json
-import requests
 from upstox_fo_complete import UpstoxAuth, UpstoxFOData
-
-# Use a session with a custom user-agent to mitigate rate limits
-session = requests.Session()
-session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-})
 
 class DataService:
     
@@ -45,7 +38,7 @@ class DataService:
     @st.cache_data(ttl=300)
     def fetch_price_history(ticker: str, period="1y"):
         try:
-            return yf.download(ticker, period=period, progress=False, session=session)
+            return yf.download(ticker, period=period, progress=False)
         except:
             return pd.DataFrame()
 
@@ -70,7 +63,7 @@ class DataService:
         label_map = {"^NSEI": "NIFTY", "^NSEBANK": "BANKNIFTY", "RELIANCE.NS": "RELIANCE", "BTC-USD": "BITCOIN"}
         try:
             # High speed fetch
-            data = yf.download(list(indices.keys()), period="2d", progress=False, session=session)['Close']
+            data = yf.download(list(indices.keys()), period="2d", progress=False)['Close']
             
             if isinstance(data, pd.Series):
                 # Single ticker result might return a Series

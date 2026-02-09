@@ -31,6 +31,9 @@ class PortfolioProPlugin(MarketTerminalPlugin):
             if not holdings and not positions:
                 st.warning("No live data. Ensure Upstox tokens are active.")
                 return
+        except Exception as e:
+            st.error(f"Portfolio Fetch Error: {e}")
+            return
 
         df = pd.DataFrame(holdings)
         
