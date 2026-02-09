@@ -125,7 +125,7 @@ class UpstoxAuth:
             "redirect_uri": self.redirect_uri
         }
         
-        response = requests.post(url, data=payload)
+        response = requests.post(url, data=payload, timeout=10)
         data = response.json()
         
         if "access_token" not in data:
@@ -195,8 +195,13 @@ class UpstoxFOData:
     def _make_api_call(self, url: str, params: Dict) -> Dict:
         """Helper to make API call with automatic token refresh on invalid token error"""
         headers = self.get_headers()
+        
+        # Don't even try if token is None
+        if "Bearer None" in headers.get("Authorization", ""):
+             return {"status": "error", "errors": [{"message": "Authentication required", "errorCode": "UDAPI100050"}]}
+
         try:
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, timeout=10)
             data = response.json()
             self.last_response = data # Store for debugging/analysis
             
@@ -207,13 +212,18 @@ class UpstoxFOData:
                     logger.warning("Token invalid (UDAPI100050). Invalidating and retrying...")
                     self.auth.invalidate_token()
                     
-                    # Retry once with new token (get_headers triggers auth flow)
-                    headers = self.get_headers() 
-                    response = requests.get(url, headers=headers, params=params)
-                    data = response.json()
-                    self.last_response = data
+                    # Check if we can get a new token automatically (only works if local file exists)
+                    new_token = self.auth.get_access_token()
+                    if new_token:
+                        headers["Authorization"] = f"Bearer {new_token}"
+                        response = requests.get(url, headers=headers, params=params, timeout=10)
+                        data = response.json()
+                        self.last_response = data
             
             return data
+        except requests.exceptions.Timeout:
+            logger.error(f"API call timed out: {url}")
+            return {"status": "error", "errors": [{"message": "Request timed out"}]}
         except Exception as e:
             logger.error(f"API call failed: {e}")
             raise

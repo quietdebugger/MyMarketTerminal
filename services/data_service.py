@@ -43,28 +43,35 @@ class DataService:
             return pd.DataFrame()
 
     @staticmethod
-    @st.cache_data(ttl=60)
     def fetch_upstox_portfolio():
+        """Fetch portfolio without caching if auth is needed to avoid hang"""
         try:
             creds = DataService.get_credentials()
-            if not creds["api_key"]: return [], []
+            if not creds["api_key"]: 
+                return [], []
             
             auth = UpstoxAuth(creds["api_key"], creds["api_secret"])
             token = auth.get_access_token()
             
             if not token:
-                # Store auth object in session state for UI to use
                 st.session_state['upstox_auth_needed'] = True
                 return [], []
             
             st.session_state['upstox_auth_needed'] = False
-            fo_data = UpstoxFOData(auth)
-            holdings = fo_data.get_holdings()
-            positions = fo_data.get_positions()
-            return holdings, positions
+            
+            # Use internal function for actual fetching with shorter cache
+            return DataService._fetch_portfolio_internal(auth)
         except Exception as e:
             st.error(f"Portfolio Fetch Error: {e}")
             return [], []
+
+    @staticmethod
+    @st.cache_data(ttl=60)
+    def _fetch_portfolio_internal(_auth):
+        fo_data = UpstoxFOData(_auth)
+        holdings = fo_data.get_holdings()
+        positions = fo_data.get_positions()
+        return holdings, positions
 
     @staticmethod
     def render_upstox_auth_ui():
