@@ -101,7 +101,7 @@ def main():
         for name, p in plugins.items():
             if p.category == cat:
                 # Use session state to track active plugin to avoid reload issues
-                if st.sidebar.button(f"{p.icon}  {p.name}", key=name, width='stretch'):
+                if st.sidebar.button(f"{p.icon}  {p.name}", key=name, use_container_width=True):
                     StateManager.set('active_plugin', name)
                     st.rerun()
 

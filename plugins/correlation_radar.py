@@ -44,7 +44,7 @@ class CorrelationRadarPlugin(MarketTerminalPlugin):
                 
                 st.markdown("---")
                 st.subheader("Heatmap Visualization")
-                st.dataframe(corr_matrix.style.background_gradient(cmap="coolwarm"), width='stretch')
+                st.dataframe(corr_matrix.style.background_gradient(cmap="coolwarm"), use_container_width=True)
                 
                 st.info("**Tip:** High correlation (>0.8) means this stock moves with the market. Low correlation (<0.3) means it offers diversification.")
 

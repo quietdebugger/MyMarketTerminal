@@ -48,5 +48,5 @@ class MarketScreenerPlugin(MarketTerminalPlugin):
             
             df = pd.DataFrame(results)
             st.subheader("Live Market Rankings")
-            st.dataframe(df.style.background_gradient(subset=['RSI'], cmap="RdYlGn_r"), width='stretch')
+            st.dataframe(df.style.background_gradient(subset=['RSI'], cmap="RdYlGn_r"), use_container_width=True)
             st.success("Scan Complete. Focus on low RSI and high Alpha stocks.")

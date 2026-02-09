@@ -24,11 +24,13 @@ class PortfolioProPlugin(MarketTerminalPlugin):
     def render(self, global_ticker: str):
         st.markdown("### 📊 Portfolio Mobile X-Ray")
         
-        holdings, positions = DataService.fetch_upstox_portfolio()
-        
-        if not holdings:
-            st.warning("No live data. (Using Simulation Mode)")
-            holdings = [{"trading_symbol": "TCS", "quantity": 10, "average_price": 3200, "last_price": 3450, "pnl": 2500}]
+        try:
+            # 1. FETCH REAL DATA WITH CLOUD-READY AUTH
+            holdings, positions = DataService.fetch_upstox_portfolio()
+            
+            if not holdings and not positions:
+                st.warning("No live data. Ensure Upstox tokens are active.")
+                return
 
         df = pd.DataFrame(holdings)
         
