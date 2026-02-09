@@ -12,27 +12,28 @@ class DataService:
     def get_credentials():
         """
         Robust credential fetching: Local File -> Streamlit Secrets.
-        This enables the app to work independently in the cloud.
         """
+        # Default redirect
+        redirect_uri = "http://localhost:5600"
+        
         # Try local first
         try:
-            # Import inside function to prevent ModuleNotFoundError on Cloud
             import api_config
             return {
                 "api_key": api_config.UPSTOX_API_KEY,
-                "api_secret": api_config.UPSTOX_API_SECRET
+                "api_secret": api_config.UPSTOX_API_SECRET,
+                "redirect_uri": getattr(api_config, 'UPSTOX_REDIRECT_URI', redirect_uri)
             }
         except ImportError:
             # Fallback to Streamlit Cloud Secrets
             try:
                 return {
                     "api_key": st.secrets["UPSTOX_API_KEY"],
-                    "api_secret": st.secrets["UPSTOX_API_SECRET"]
+                    "api_secret": st.secrets["UPSTOX_API_SECRET"],
+                    "redirect_uri": st.secrets.get("UPSTOX_REDIRECT_URI", redirect_uri)
                 }
             except Exception as e:
-                # If both fail, return empty to avoid crash, but log error
-                st.error("Authentication credentials missing. Please set st.secrets or api_config.py")
-                return {"api_key": "", "api_secret": ""}
+                return {"api_key": "", "api_secret": "", "redirect_uri": redirect_uri}
 
     @staticmethod
     @st.cache_data(ttl=300)
@@ -44,13 +45,13 @@ class DataService:
 
     @staticmethod
     def fetch_upstox_portfolio():
-        """Fetch portfolio without caching if auth is needed to avoid hang"""
+        """Fetch portfolio with string-based hashing to prevent hangs"""
         try:
             creds = DataService.get_credentials()
             if not creds["api_key"]: 
                 return [], []
             
-            auth = UpstoxAuth(creds["api_key"], creds["api_secret"])
+            auth = UpstoxAuth(creds["api_key"], creds["api_secret"], creds["redirect_uri"])
             token = auth.get_access_token()
             
             if not token:
@@ -59,16 +60,17 @@ class DataService:
             
             st.session_state['upstox_auth_needed'] = False
             
-            # Use internal function for actual fetching with shorter cache
-            return DataService._fetch_portfolio_internal(auth)
+            # PASS STRING TOKEN, NOT OBJECT to avoid hashing hangs
+            return DataService._fetch_portfolio_internal(token)
         except Exception as e:
             st.error(f"Portfolio Fetch Error: {e}")
             return [], []
 
     @staticmethod
     @st.cache_data(ttl=60)
-    def _fetch_portfolio_internal(_auth):
-        fo_data = UpstoxFOData(_auth)
+    def _fetch_portfolio_internal(access_token: str):
+        """String token prevents hashing hangs in Streamlit Cloud"""
+        fo_data = UpstoxFOData(access_token)
         holdings = fo_data.get_holdings()
         positions = fo_data.get_positions()
         return holdings, positions
@@ -82,6 +84,7 @@ class DataService:
             auth = UpstoxAuth(creds["api_key"], creds["api_secret"])
             
             st.sidebar.link_button("🚀 OPEN LOGIN PAGE", auth.get_login_url(), use_container_width=True)
+            st.sidebar.markdown(f"[Backup Login Link]({auth.get_login_url()})")
             st.sidebar.caption("Login, copy the 'code' from the URL after redirect, and paste it below.")
             
             with st.sidebar.form("auth_code_form"):

@@ -44,10 +44,14 @@ if not st.session_state.get('upstox_auth_needed'):
         creds = DataService.get_credentials()
         if creds["api_key"]:
             from upstox_fo_complete import UpstoxAuth
-            auth = UpstoxAuth(creds["api_key"], creds["api_secret"])
-            if not auth.get_access_token():
+            # Explicitly pass redirect_uri from creds
+            auth = UpstoxAuth(creds["api_key"], creds["api_secret"], creds["redirect_uri"])
+            token = auth.get_access_token()
+            if not token:
                 st.session_state['upstox_auth_needed'] = True
-    except: pass
+    except Exception as e:
+        # Don't let auth check crash the app, but log it
+        st.sidebar.error(f"Auth Check Error: {e}")
 
 # --- HEARTBEAT / AUTO-REFRESH ---
 if st.session_state.get('user_settings', {}).get('refresh_rate', 0) > 0:

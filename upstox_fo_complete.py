@@ -179,54 +179,35 @@ class UpstoxAuth:
 class UpstoxFOData:
     """Fetch Options AND Futures with correct structure"""
     
-    def __init__(self, auth: UpstoxAuth):
-        self.auth = auth
+    def __init__(self, access_token: str):
+        self.access_token = access_token
         self.base_url = "https://api.upstox.com/v2"
-        self.last_response: Optional[Dict] = None # Store last response for analysis
-        self.key_map: Dict[str, str] = {} # Map requested keys to successful response keys
+        self.last_response: Optional[Dict] = None 
+        self.key_map: Dict[str, str] = {} 
     
     def get_headers(self) -> Dict:
-        access_token = self.auth.get_access_token()
         return {
-            "Authorization": f"Bearer {access_token}",
+            "Authorization": f"Bearer {self.access_token}",
             "Accept": "application/json"
         }
     
     def _make_api_call(self, url: str, params: Dict) -> Dict:
-        """Helper to make API call with automatic token refresh on invalid token error"""
+        """Helper to make API call with timeout"""
         headers = self.get_headers()
         
-        # Don't even try if token is None
-        if "Bearer None" in headers.get("Authorization", ""):
-             return {"status": "error", "errors": [{"message": "Authentication required", "errorCode": "UDAPI100050"}]}
+        if not self.access_token or self.access_token == "None":
+             return {"status": "error", "errors": [{"message": "Authentication required"}]}
 
         try:
             response = requests.get(url, headers=headers, params=params, timeout=10)
             data = response.json()
-            self.last_response = data # Store for debugging/analysis
-            
-            # Check for token invalid error (UDAPI100050)
-            if data.get("status") == "error":
-                errors = data.get("errors", [])
-                if errors and errors[0].get("errorCode") == "UDAPI100050":
-                    logger.warning("Token invalid (UDAPI100050). Invalidating and retrying...")
-                    self.auth.invalidate_token()
-                    
-                    # Check if we can get a new token automatically (only works if local file exists)
-                    new_token = self.auth.get_access_token()
-                    if new_token:
-                        headers["Authorization"] = f"Bearer {new_token}"
-                        response = requests.get(url, headers=headers, params=params, timeout=10)
-                        data = response.json()
-                        self.last_response = data
-            
+            self.last_response = data
             return data
         except requests.exceptions.Timeout:
-            logger.error(f"API call timed out: {url}")
             return {"status": "error", "errors": [{"message": "Request timed out"}]}
         except Exception as e:
             logger.error(f"API call failed: {e}")
-            raise
+            return {"status": "error", "errors": [{"message": str(e)}]}
 
     def get_spot_price(self, symbol: str) -> Optional[float]:
         """Get real-time spot price"""
