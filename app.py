@@ -37,6 +37,18 @@ st.markdown("""
 apply_custom_css()
 StateManager.init()
 
+# --- PROACTIVE AUTH CHECK ---
+# Check if we need auth immediately so the UI shows up
+if not st.session_state.get('upstox_auth_needed'):
+    try:
+        creds = DataService.get_credentials()
+        if creds["api_key"]:
+            from upstox_fo_complete import UpstoxAuth
+            auth = UpstoxAuth(creds["api_key"], creds["api_secret"])
+            if not auth.get_access_token():
+                st.session_state['upstox_auth_needed'] = True
+    except: pass
+
 # --- HEARTBEAT / AUTO-REFRESH ---
 if st.session_state.get('user_settings', {}).get('refresh_rate', 0) > 0:
     try:

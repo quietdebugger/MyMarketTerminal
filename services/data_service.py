@@ -81,18 +81,19 @@ class DataService:
             creds = DataService.get_credentials()
             auth = UpstoxAuth(creds["api_key"], creds["api_secret"])
             
-            st.sidebar.markdown(f"[Click here to Login]({auth.get_login_url()})")
+            st.sidebar.link_button("🚀 OPEN LOGIN PAGE", auth.get_login_url(), use_container_width=True)
+            st.sidebar.caption("Login, copy the 'code' from the URL after redirect, and paste it below.")
             
             with st.sidebar.form("auth_code_form"):
-                code = st.text_input("Enter Code from URL")
+                code = st.text_input("Enter Auth Code")
                 if st.form_submit_button("ACTIVATE SESSION"):
                     try:
                         auth.exchange_code_for_tokens(code)
                         st.session_state['upstox_auth_needed'] = False
-                        st.success("Session Active!")
+                        st.sidebar.success("Session Active!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Activation Failed: {e}")
+                        st.sidebar.error(f"Activation Failed: {e}")
 
     @staticmethod
     def get_market_breadth():

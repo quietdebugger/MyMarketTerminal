@@ -13,7 +13,8 @@ class StateManager:
         'portfolio_cache': None,
         'market_breadth_cache': None,
         'last_refresh': 0,
-        'user_settings': {'theme': 'dark', 'refresh_rate': 60}
+        'user_settings': {'theme': 'dark', 'refresh_rate': 60},
+        'upstox_auth_needed': False
     }
 
     @staticmethod
