@@ -49,14 +49,14 @@ class DataService:
         try:
             creds = DataService.get_credentials()
             if not creds["api_key"]: 
-                return [], []
+                return [], [], "API Key Missing"
             
             auth = UpstoxAuth(creds["api_key"], creds["api_secret"], creds["redirect_uri"])
             token = auth.get_access_token()
             
             if not token:
                 st.session_state['upstox_auth_needed'] = True
-                return [], []
+                return [], [], "Auth Required"
             
             st.session_state['upstox_auth_needed'] = False
             
@@ -64,16 +64,22 @@ class DataService:
             return DataService._fetch_portfolio_internal(token)
         except Exception as e:
             st.error(f"Portfolio Fetch Error: {e}")
-            return [], []
+            return [], [], str(e)
 
     @staticmethod
     @st.cache_data(ttl=60)
     def _fetch_portfolio_internal(access_token: str):
         """String token prevents hashing hangs in Streamlit Cloud"""
         fo_data = UpstoxFOData(access_token)
-        holdings = fo_data.get_holdings()
-        positions = fo_data.get_positions()
-        return holdings, positions
+        holdings, h_err = fo_data.get_holdings()
+        positions, p_err = fo_data.get_positions()
+        
+        # Combine errors if any
+        error = None
+        if h_err or p_err:
+            error = f"Holdings: {h_err or 'OK'}, Positions: {p_err or 'OK'}"
+            
+        return holdings, positions, error
 
     @staticmethod
     def render_upstox_auth_ui():
@@ -81,19 +87,23 @@ class DataService:
         if st.session_state.get('upstox_auth_needed'):
             st.sidebar.warning("🔐 Upstox Session Expired")
             creds = DataService.get_credentials()
-            auth = UpstoxAuth(creds["api_key"], creds["api_secret"])
+            auth = UpstoxAuth(creds["api_key"], creds["api_secret"], creds["redirect_uri"])
             
+            st.sidebar.markdown("### 🛠️ Re-Authentication Steps")
+            st.sidebar.markdown("1. Click the button below to open Upstox login.")
             st.sidebar.link_button("🚀 OPEN LOGIN PAGE", auth.get_login_url(), use_container_width=True)
-            st.sidebar.markdown(f"[Backup Login Link]({auth.get_login_url()})")
-            st.sidebar.caption("Login, copy the 'code' from the URL after redirect, and paste it below.")
+            
+            st.sidebar.markdown("2. After login, you will be redirected to a 'localhost' URL (it might fail to load, that's okay!).")
+            st.sidebar.markdown("3. Copy the `code=...` part from that URL.")
+            st.sidebar.markdown("4. Paste the code below:")
             
             with st.sidebar.form("auth_code_form"):
-                code = st.text_input("Enter Auth Code")
-                if st.form_submit_button("ACTIVATE SESSION"):
+                code = st.text_input("Paste Auth Code Here")
+                if st.form_submit_button("ACTIVATE SESSION", type="primary"):
                     try:
                         auth.exchange_code_for_tokens(code)
                         st.session_state['upstox_auth_needed'] = False
-                        st.sidebar.success("Session Active!")
+                        st.sidebar.success("Session Active! Reloading...")
                         st.rerun()
                     except Exception as e:
                         st.sidebar.error(f"Activation Failed: {e}")

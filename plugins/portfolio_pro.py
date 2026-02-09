@@ -36,15 +36,27 @@ class PortfolioProPlugin(MarketTerminalPlugin):
     def render(self, global_ticker: str):
         st.markdown("### 📊 Portfolio Mobile X-Ray")
         
+        holdings = []
+        positions = []
+        error = None
+
         try:
             # 1. FETCH REAL DATA WITH CLOUD-READY AUTH
-            holdings, positions = DataService.fetch_upstox_portfolio()
+            holdings, positions, error = DataService.fetch_upstox_portfolio()
             
-            if not holdings and not positions:
-                st.warning("No live data. Ensure Upstox tokens are active.")
+            if error:
+                if "Auth Required" in error:
+                    st.warning("🔐 Please login via the sidebar to view your portfolio.")
+                else:
+                    st.error(f"⚠️ Upstox API Error: {error}")
                 return
+
+            if not holdings and not positions:
+                st.info("ℹ️ No active holdings or positions found in this account.")
+                return
+
         except Exception as e:
-            st.error(f"Portfolio Fetch Error: {e}")
+            st.error(f"Portfolio Plugin Crash: {e}")
             return
 
         df = pd.DataFrame(holdings)
