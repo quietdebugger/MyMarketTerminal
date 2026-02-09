@@ -2,7 +2,14 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
+import requests
 from core.plugin_interface import MarketTerminalPlugin
+
+# Use a session with a custom user-agent to mitigate rate limits
+session = requests.Session()
+session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+})
 
 class CorrelationRadarPlugin(MarketTerminalPlugin):
     @property
@@ -21,7 +28,7 @@ class CorrelationRadarPlugin(MarketTerminalPlugin):
             all_tickers = benchmarks + [ticker]
             
             with st.spinner("Calculating Peer Correlation..."):
-                data = yf.download(all_tickers, period="6mo", progress=False)['Close']
+                data = yf.download(all_tickers, period="6mo", progress=False, session=session)['Close']
                 if isinstance(data.columns, pd.MultiIndex):
                     data.columns = data.columns.get_level_values(0)
                 

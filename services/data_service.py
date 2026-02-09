@@ -4,7 +4,14 @@ import pandas as pd
 import numpy as np
 import os
 import json
+import requests
 from upstox_fo_complete import UpstoxAuth, UpstoxFOData
+
+# Use a session with a custom user-agent to mitigate rate limits
+session = requests.Session()
+session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+})
 
 class DataService:
     
@@ -38,8 +45,7 @@ class DataService:
     @st.cache_data(ttl=300)
     def fetch_price_history(ticker: str, period="1y"):
         try:
-            stock = yf.Ticker(ticker)
-            return stock.history(period=period)
+            return yf.download(ticker, period=period, progress=False, session=session)
         except:
             return pd.DataFrame()
 
@@ -60,22 +66,30 @@ class DataService:
 
     @staticmethod
     def get_market_breadth():
-        indices = {"^NSEI": "NIFTY", "^NSEBANK": "BANKNIFTY", "RELIANCE.NS": "RELIANCE", "BTC-USD": "BITCOIN"}
+        indices = {"^NSEI": "^NSEI", "^NSEBANK": "^NSEBANK", "RELIANCE.NS": "RELIANCE.NS", "BTC-USD": "BTC-USD"}
+        label_map = {"^NSEI": "NIFTY", "^NSEBANK": "BANKNIFTY", "RELIANCE.NS": "RELIANCE", "BTC-USD": "BITCOIN"}
         try:
             # High speed fetch
-            data = yf.download(list(indices.keys()), period="2d", progress=False)['Close']
+            data = yf.download(list(indices.keys()), period="2d", progress=False, session=session)['Close']
+            
+            if isinstance(data, pd.Series):
+                # Single ticker result might return a Series
+                data = data.to_frame()
+
             if isinstance(data.columns, pd.MultiIndex):
                 data.columns = data.columns.get_level_values(0)
             
             breadth = {}
-            for sym, label in indices.items():
+            for sym in indices.keys():
                 if sym in data.columns:
                     s = data[sym].dropna()
                     if len(s) >= 2:
+                        label = label_map[sym]
                         breadth[label] = {
                             "price": s.iloc[-1],
-                            "change": ((series.iloc[-1] / series.iloc[-2]) - 1) * 100 if 'series' in locals() else ((s.iloc[-1] / s.iloc[-2]) - 1) * 100
+                            "change": ((s.iloc[-1] / s.iloc[-2]) - 1) * 100
                         }
             return breadth
-        except:
+        except Exception as e:
+            st.error(f"Breadth Error: {e}")
             return {}

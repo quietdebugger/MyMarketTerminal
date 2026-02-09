@@ -23,7 +23,8 @@ from calendar import monthrange
 logger = logging.getLogger(__name__)
 
 # Load the pre-processed instrument master data
-INSTRUMENT_MASTER_PATH = "C:/Users/Aallamprabhu/Desktop/bbt/bbt10/instrument_master.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+INSTRUMENT_MASTER_PATH = os.path.join(BASE_DIR, "instrument_master.json")
 INSTRUMENT_MASTER: Dict[str, Any] = {}
 if os.path.exists(INSTRUMENT_MASTER_PATH):
     try:
