@@ -39,8 +39,11 @@ StateManager.init()
 
 # --- HEARTBEAT / AUTO-REFRESH ---
 if st.session_state.get('user_settings', {}).get('refresh_rate', 0) > 0:
-    from streamlit_autorefresh import st_autorefresh
-    st_autorefresh(interval=st.session_state['user_settings']['refresh_rate'] * 1000, key="heartbeat")
+    try:
+        from streamlit_autorefresh import st_autorefresh
+        st_autorefresh(interval=st.session_state['user_settings']['refresh_rate'] * 1000, key="heartbeat")
+    except ImportError:
+        st.warning("Autorefresh library missing. Manual refresh required.")
 
 # --- 2. PLUGIN LOADING ---
 @st.cache_resource
