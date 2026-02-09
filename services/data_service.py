@@ -2,61 +2,79 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import os
+import json
 from upstox_fo_complete import UpstoxAuth, UpstoxFOData
-import api_config
 
 class DataService:
     
     @staticmethod
-    @st.cache_data(ttl=300) # Cache for 5 minutes
+    def get_credentials():
+        """
+        Robust credential fetching: Local File -> Streamlit Secrets.
+        This enables the app to work independently in the cloud.
+        """
+        # Try local first
+        try:
+            # Import inside function to prevent ModuleNotFoundError on Cloud
+            import api_config
+            return {
+                "api_key": api_config.UPSTOX_API_KEY,
+                "api_secret": api_config.UPSTOX_API_SECRET
+            }
+        except ImportError:
+            # Fallback to Streamlit Cloud Secrets
+            try:
+                return {
+                    "api_key": st.secrets["UPSTOX_API_KEY"],
+                    "api_secret": st.secrets["UPSTOX_API_SECRET"]
+                }
+            except Exception as e:
+                # If both fail, return empty to avoid crash, but log error
+                st.error("Authentication credentials missing. Please set st.secrets or api_config.py")
+                return {"api_key": "", "api_secret": ""}
+
+    @staticmethod
+    @st.cache_data(ttl=300)
     def fetch_price_history(ticker: str, period="1y"):
-        """Fetches cached price history to prevent re-downloading on tab switch."""
         try:
             stock = yf.Ticker(ticker)
-            data = stock.history(period=period)
-            return data
-        except Exception:
+            return stock.history(period=period)
+        except:
             return pd.DataFrame()
 
     @staticmethod
-    @st.cache_data(ttl=3600) # Cache Fundamentals for 1 hour
-    def fetch_fundamentals(ticker: str):
-        try:
-            stock = yf.Ticker(ticker)
-            return stock.info
-        except:
-            return {}
-
-    @staticmethod
-    @st.cache_data(ttl=60) # Cache Portfolio for 1 minute
+    @st.cache_data(ttl=60)
     def fetch_upstox_portfolio():
-        """Fetches real Upstox holdings."""
         try:
-            auth = UpstoxAuth(api_config.UPSTOX_API_KEY, api_config.UPSTOX_API_SECRET)
+            creds = DataService.get_credentials()
+            if not creds["api_key"]: return [], []
+            
+            auth = UpstoxAuth(creds["api_key"], creds["api_secret"])
             fo_data = UpstoxFOData(auth)
             holdings = fo_data.get_holdings()
             positions = fo_data.get_positions()
             return holdings, positions
-        except Exception as e:
+        except Exception:
             return [], []
 
     @staticmethod
     def get_market_breadth():
-        """Optimized batch fetch for top bar."""
-        indices = ["^NSEI", "^NSEBANK", "^BSESN", "BTC-USD"]
+        indices = {"^NSEI": "NIFTY", "^NSEBANK": "BANKNIFTY", "RELIANCE.NS": "RELIANCE", "BTC-USD": "BITCOIN"}
         try:
-            data = yf.download(indices, period="2d", progress=False)['Close']
+            # High speed fetch
+            data = yf.download(list(indices.keys()), period="2d", progress=False)['Close']
             if isinstance(data.columns, pd.MultiIndex):
                 data.columns = data.columns.get_level_values(0)
             
             breadth = {}
-            for ticker in indices:
-                if ticker in data.columns:
-                    series = data[ticker].dropna()
-                    if len(series) >= 2:
-                        breadth[ticker] = {
-                            "price": series.iloc[-1],
-                            "change": ((series.iloc[-1] / series.iloc[-2]) - 1) * 100
+            for sym, label in indices.items():
+                if sym in data.columns:
+                    s = data[sym].dropna()
+                    if len(s) >= 2:
+                        breadth[label] = {
+                            "price": s.iloc[-1],
+                            "change": ((series.iloc[-1] / series.iloc[-2]) - 1) * 100 if 'series' in locals() else ((s.iloc[-1] / s.iloc[-2]) - 1) * 100
                         }
             return breadth
         except:
