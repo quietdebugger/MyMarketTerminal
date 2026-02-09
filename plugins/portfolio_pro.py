@@ -15,11 +15,23 @@ class PortfolioProPlugin(MarketTerminalPlugin):
 
     def analyze_holding(self, ticker):
         data = DataService.fetch_price_history(ticker, period="3mo")
-        if data.empty: return 0, 0, 0
-        rsi = 100 - (100 / (1 + (data['Close'].diff().clip(lower=0).rolling(14).mean() / (data['Close'].diff().clip(upper=0).abs().rolling(14).mean() + 1e-9))))
-        trend = (data['Close'].iloc[-1] > data['Close'].rolling(50).mean().iloc[-1])
-        score = int(trend) * 50 + (40 if rsi.iloc[-1] < 40 else 10)
-        return score, rsi.iloc[-1], data['Close'].pct_change().std() * 100
+        if data is None or data.empty or 'Close' not in data.columns: return 0, 0, 0
+        try:
+            close = data['Close']
+            delta = close.diff()
+            up = delta.clip(lower=0)
+            down = delta.clip(upper=0).abs()
+            roll_up = up.rolling(14).mean()
+            roll_down = down.rolling(14).mean()
+            rs = roll_up / (roll_down + 1e-9)
+            rsi = 100 - (100 / (1 + rs))
+            
+            last_rsi = rsi.iloc[-1] if not rsi.empty else 50
+            trend = (close.iloc[-1] > close.rolling(50).mean().iloc[-1]) if len(close) >= 50 else False
+            score = int(trend) * 50 + (40 if last_rsi < 40 else 10)
+            return score, last_rsi, close.pct_change().std() * 100
+        except:
+            return 0, 50, 0
 
     def render(self, global_ticker: str):
         st.markdown("### 📊 Portfolio Mobile X-Ray")
@@ -36,6 +48,13 @@ class PortfolioProPlugin(MarketTerminalPlugin):
             return
 
         df = pd.DataFrame(holdings)
+        if df.empty:
+            if positions:
+                with st.expander("Active F&O Positions"):
+                    st.write(pd.DataFrame(positions))
+            else:
+                st.info("Portfolio is empty.")
+            return
         
         # Performance Summary
         curr_val = (df['quantity'] * df['last_price']).sum()
