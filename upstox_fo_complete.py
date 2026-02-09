@@ -384,37 +384,31 @@ class UpstoxFOData:
         logger.warning(f"Quote fetch failed for {symbol} after trying keys: {candidate_keys}")
         return {}
 
-    def get_holdings(self) -> Tuple[List[Dict], Optional[str]]:
-        """Fetch long-term holdings. Returns (data, error_message)"""
+    def get_holdings(self) -> List[Dict]:
+        """Fetch long-term holdings"""
         try:
             url = f"{self.base_url}/portfolio/long-term-holdings"
             data = self._make_api_call(url, {})
             
             if data.get("status") == "success":
-                return data.get("data", []), None
-            else:
-                errors = data.get("errors", [])
-                msg = errors[0].get("message", "Unknown error") if errors else "Unknown API error"
-                return [], msg
+                return data.get("data", [])
+            return []
         except Exception as e:
             logger.error(f"Holdings fetch failed: {e}")
-            return [], str(e)
+            return []
 
-    def get_positions(self) -> Tuple[List[Dict], Optional[str]]:
-        """Fetch short-term positions. Returns (data, error_message)"""
+    def get_positions(self) -> List[Dict]:
+        """Fetch short-term positions"""
         try:
             url = f"{self.base_url}/portfolio/short-term-positions"
             data = self._make_api_call(url, {})
             
             if data.get("status") == "success":
-                return data.get("data", []), None
-            else:
-                errors = data.get("errors", [])
-                msg = errors[0].get("message", "Unknown error") if errors else "Unknown API error"
-                return [], msg
+                return data.get("data", [])
+            return []
         except Exception as e:
             logger.error(f"Positions fetch failed: {e}")
-            return [], str(e)
+            return []
 
     def get_option_chain(
         self,
