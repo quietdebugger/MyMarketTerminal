@@ -51,6 +51,7 @@ def load_plugins_cached():
     """Cache plugin loading to speed up re-runs."""
     plugins = {}
     plugin_path = os.path.join(os.path.dirname(__file__), "plugins")
+    st.sidebar.write(f"Scanning: {plugin_path}")
     for _, name, _ in pkgutil.iter_modules([plugin_path]):
         try:
             module = importlib.import_module(f"plugins.{name}")
@@ -59,7 +60,9 @@ def load_plugins_cached():
                 if (inspect.isclass(attribute) and issubclass(attribute, MarketTerminalPlugin) and attribute is not MarketTerminalPlugin):
                     instance = attribute()
                     plugins[instance.name] = instance
-        except: pass
+                    st.sidebar.write(f"✅ Loaded: {instance.name}")
+        except Exception as e:
+            st.sidebar.error(f"❌ Failed {name}: {e}")
     return plugins
 
 # --- 3. UI LAYOUT ---
