@@ -1,0 +1,10 @@
+streamlit==1.31.0
+pandas
+numpy
+yfinance
+requests
+beautifulsoup4
+pytz
+plotly
+scikit-learn
+torch --index-url https://download.pytorch.org/whl/cpu

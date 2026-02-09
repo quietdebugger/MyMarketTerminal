@@ -1,0 +1,14 @@
+# API Keys and Secrets
+api_config.py
+upstox_tokens.json
+*.json
+!README.md
+
+# Logs and Temp files
+*.log
+*.err
+__pycache__/
+.ipynb_checkpoints/
+
+# Streamlit secrets (if local)
+.streamlit/secrets.toml
