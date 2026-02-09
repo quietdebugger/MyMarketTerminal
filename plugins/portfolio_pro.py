@@ -11,7 +11,7 @@ class PortfolioProPlugin(MarketTerminalPlugin):
     @property
     def category(self) -> str: return "Trading"
     @property
-    def icon(self) -> str: return "📊"
+    def icon(self) -> str: return "📱"
 
     def analyze_holding(self, ticker):
         data = DataService.fetch_price_history(ticker, period="3mo")
